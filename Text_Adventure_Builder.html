@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Console Adventure Builder — Simple</title>
+<style>
+:root{color-scheme:dark;--bg:#0c0d0f;--panel:#151619;--panel2:#222327;--line:#343539;--text:#dededc;--muted:#a4a4a1;--accent:#b3a48a;--green:#9bbba0;--red:#d58f8f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 Verdana, Geneva, sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;background:#111214}
+h1{font-family:Georgia,"Times New Roman",serif;font-size:24px;font-weight:normal;letter-spacing:.2px;margin:0}header p{margin:3px 0 0;color:var(--muted);font-size:12px}
+button,.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:9px 12px;border-radius:4px;cursor:pointer;font:inherit}
+button:hover,.btn:hover{border-color:var(--accent)}button.primary{background:#37332d;border-color:#706454}button.danger{color:#dca0a0}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.layout{display:grid;grid-template-columns:250px minmax(360px,1fr) minmax(300px,390px);gap:14px;padding:14px;max-width:1600px;margin:auto;min-height:calc(100vh - 75px)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:5px;min-width:0;overflow:hidden}
+.panel-head{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-family:Georgia,"Times New Roman",serif;font-size:17px;font-weight:normal}
+.panel-body{padding:14px}
+.scene-list{display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 190px);overflow:auto}
+.scene-item{display:flex;gap:6px;align-items:center}
+.scene-select{flex:1;text-align:left;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:transparent}
+.scene-select.active{background:#34302b;border-color:#88765e}
+.scene-item small{color:var(--muted);font-size:11px}
+.folder-row{display:flex;align-items:center;gap:5px;margin:12px 0 5px;border-bottom:1px solid var(--line);padding-bottom:5px}
+.folder-row .folder-toggle{flex:1;text-align:left;background:#27282a;font-weight:600}
+.folder-row button{padding:5px 7px}
+.folder-scenes{padding-left:12px;border-left:2px solid #484744}
+.scene-item[draggable="true"]{cursor:grab}.scene-item.dragging{opacity:.35}.folder-row.drop-target,.scene-item.drop-target{outline:2px dashed var(--accent);outline-offset:2px;background:#302e2b}.scene-item.drop-target{border-radius:3px}.scene-item .scene-select{cursor:grab}
+.folder-tools{display:flex;gap:5px;margin-top:10px}
+.folder-tools button{flex:1;padding:7px 5px;font-size:12px}
+label{display:block;color:var(--muted);font-size:12px;margin:13px 0 5px}
+input[type=text],textarea,select{width:100%;background:#101113;border:1px solid var(--line);border-radius:3px;padding:9px;color:var(--text);font:inherit}
+input:focus,textarea:focus,select:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+textarea{resize:vertical;min-height:115px}
+#sceneText{min-height:190px}#ascii{min-height:135px;font:13px/1.3 "Courier New",monospace;white-space:pre}
+.hint{color:var(--muted);font-size:11px;margin-top:5px}
+.choice{border:1px solid var(--line);border-radius:4px;padding:10px;margin-top:10px;background:#1a1b1e}
+.choice-top{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:12px}
+.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.choice-grid label{margin-top:9px}
+input[type=checkbox]{accent-color:var(--accent)}
+.checkline{display:flex;align-items:center;gap:8px;margin-top:13px;color:var(--muted)}
+.right-stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+.preview{background:#0b0c0e;border:1px solid #343539;border-radius:4px;padding:14px;min-height:180px;max-height:340px;overflow:auto;font:13px/1.55 "Courier New",monospace;white-space:pre-wrap;color:#d5d4ce}
+.preview .prompt{color:#c9b99e}.preview button{display:block;width:100%;text-align:left;margin-top:7px;font:13px "Courier New",monospace;background:#1c1d20}
+.status{font-size:12px;color:var(--muted);margin-top:8px;min-height:18px}
+.status.error{color:var(--red)}.status.ok{color:var(--green)}
+.modal-backdrop{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;padding:18px}
+.modal{width:min(900px,100%);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:16px}
+.modal textarea{height:55vh;font:12px/1.4 "Courier New",monospace}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.empty{color:var(--muted);padding:10px 2px}
+.scene-move{padding:4px 7px;font-size:12px}
+
+@media(max-width:1050px){.layout{grid-template-columns:210px minmax(300px,1fr)}.right-stack{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}}
+@media(max-width:700px){header{align-items:flex-start;flex-direction:column}.layout{grid-template-columns:1fr}.right-stack{grid-column:auto;display:flex}.scene-list{max-height:220px}}
+</style>
+</head>
+<body>
+<header>
+ <div><h1>Console Adventure Builder</h1><p>Write scenes, connect choices, add ASCII art, and export a C++ console game.</p></div>
+ <div class="toolbar">
+  <button id="newProject">New</button><button id="saveProject">Save project</button><button id="loadProject">Load project</button><input id="fileInput" type="file" accept=".json,application/json" hidden>
+  <button class="primary" id="exportCpp">Export C++</button>
+ </div>
+</header>
+<div class="layout">
+ <section class="panel">
+  <div class="panel-head"><span>Scenes</span><button id="addScene" class="primary">+ Add</button></div>
+  <div class="panel-body">
+   <div class="hint">Click a scene to edit it. Drag scenes into folders or onto another scene to reorder them.</div>
+   <div class="folder-tools"><button id="addFolder">+ Folder</button><button id="expandFolders">Expand all</button></div>
+   <div id="sceneList" class="scene-list" style="margin-top:12px"></div>
+  </div>
+ </section>
+ <section class="panel">
+  <div class="panel-head"><span>Scene editor</span><span id="sceneCount" class="hint"></span></div>
+  <div class="panel-body" id="editor">
+   <label for="sceneTitle">Scene name</label><input id="sceneTitle" type="text" placeholder="Example: The Abandoned Town">
+   <label for="sceneText">Scene text</label><textarea id="sceneText" placeholder="Write what happens in this scene..."></textarea>
+   <div class="hint">This is the story text the player will read.</div>
+   <label for="ascii">ASCII art</label><textarea id="ascii" placeholder="Paste or type ASCII art here..." spellcheck="false"></textarea>
+   <div class="hint">Keep spaces and line breaks. The art will appear above the scene text.</div>
+   <div class="checkline"><input type="checkbox" id="isEnding"><label for="isEnding" style="margin:0">This scene is an ending (no choices)</label></div>
+   <div class="choice-head" style="display:flex;justify-content:space-between;align-items:center;margin-top:17px"><strong>Choices</strong><span class="hint">Choose how many options this scene has</span></div>
+   <label for="choiceCount">Number of choices</label><select id="choiceCount"></select>
+   <div id="choices"></div>
+   <label for="sceneFolder">Scene folder</label><select id="sceneFolder"></select>
+   <label for="startScene">Starting scene</label><select id="startScene"></select>
+   <div class="toolbar" style="margin-top:15px"><button id="moveUp">Move up ↑</button><button id="moveDown">Move down ↓</button><button id="duplicateScene">Duplicate scene</button><button id="deleteScene" class="danger">Delete scene</button></div>
+   <div id="editorStatus" class="status"></div>
+  </div>
+ </section>
+ <div class="right-stack">
+  <section class="panel">
+   <div class="panel-head"><span>Current scene preview</span><div class="toolbar"><button id="openPreview">Open live window ↗</button><button id="restartPreview">Refresh</button></div></div>
+   <div class="panel-body"><div id="preview" class="preview"></div><div id="previewStatus" class="status">Preview of the selected scene only. Choices do not navigate.</div></div>
+  </section>
+  <section class="panel">
+   <div class="panel-head"><span>Project checks</span><button id="checkProject">Check links</button></div>
+   <div class="panel-body"><div class="hint">Checks for missing choice destinations and scenes that cannot be reached from the starting scene.</div><div id="checks" class="status" style="margin-top:12px">No checks run yet.</div></div>
+  </section>
+ </div>
+
+</div>
+<div class="modal-backdrop" id="exportModal">
+ <div class="modal"><div class="modal-head"><strong>Generated C++ source</strong><div class="toolbar"><button id="copyCpp">Copy code</button><button id="downloadCpp" class="primary">Download .cpp</button><button id="closeModal">Close</button></div></div><div class="hint">This is a complete C++ console program. Save it as a .cpp file and open it in Visual Studio.</div><textarea id="cppOutput" spellcheck="false"></textarea><div id="exportStatus" class="status"></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let project={name:"My Adventure",start:"scene1",scenes:[]};
+let selectedId=null;
+let previewWindow=null;
+let nextId=1;
+let collapsedFolders=new Set();
+function ensureFolders(){if(!Array.isArray(project.folders))project.folders=[];}
+function makeScene(name="New Scene"){return {id:"scene"+(nextId++),title:name,text:"",ascii:"",ending:false,choices:[{text:"Choice 1",target:""},{text:"Choice 2",target:""},{text:"Choice 3",target:""}]};}
+function current(){return project.scenes.find(s=>s.id===selectedId)||null;}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function init(){if(!project.scenes.length){let s=makeScene("Opening");s.text="Your adventure begins here.";project.scenes.push(s);project.start=s.id;}selectedId=project.scenes[0].id;render();}
+function render(){
+ renderList();renderEditor();renderStartSelect();renderPreview();
+ $("sceneCount").textContent=project.scenes.length+" scene"+(project.scenes.length===1?"":"s");
+}
+let draggedSceneId=null;
+function moveSceneToFolder(sceneId,folderId,beforeId=null){
+ const index=project.scenes.findIndex(s=>s.id===sceneId);
+ if(index<0)return;
+ const [scene]=project.scenes.splice(index,1);
+ scene.folderId=folderId==="__unfiled"?"":folderId;
+ if(beforeId&&beforeId!==sceneId){
+  const target=project.scenes.findIndex(s=>s.id===beforeId);
+  if(target>=0)project.scenes.splice(target,0,scene);else project.scenes.push(scene);
+ }else{
+  // Put dropped scenes after existing scenes in that folder.
+  let last=-1;
+  for(let i=0;i<project.scenes.length;i++){
+   if((project.scenes[i].folderId||"")===(scene.folderId||""))last=i;
+  }
+  project.scenes.splice(last+1,0,scene);
+ }
+ collapsedFolders.delete(folderId);
+ render();
+}
+function makeDropTarget(el,folderId,beforeId=null){
+ el.addEventListener("dragover",e=>{
+  if(!draggedSceneId)return;
+  e.preventDefault();e.dataTransfer.dropEffect="move";
+  el.classList.add("drop-target");
+ });
+ el.addEventListener("dragleave",e=>{if(!el.contains(e.relatedTarget))el.classList.remove("drop-target");});
+ el.addEventListener("drop",e=>{
+  e.preventDefault();e.stopPropagation();el.classList.remove("drop-target");
+  const id=draggedSceneId||e.dataTransfer.getData("text/plain");
+  if(id)moveSceneToFolder(id,folderId,beforeId);
+  draggedSceneId=null;
+ });
+}
+function renderList(){
+ ensureFolders();
+ const root=$("sceneList");root.innerHTML="";
+ function addSceneRow(s,parent,folderId){
+  let i=project.scenes.indexOf(s),row=document.createElement("div");row.className="scene-item";
+  row.draggable=true;row.title="Drag to another folder or onto another scene to reorder";
+  let b=document.createElement("button");b.className="scene-select"+(s.id===selectedId?" active":"");
+  b.innerHTML=`<strong>${i+1}.</strong> ${esc(s.title||"Untitled scene")}<br><small>${s.ending?"Ending":"Scene"}</small>`;
+  b.onclick=()=>{selectedId=s.id;render();};
+  row.appendChild(b);parent.appendChild(row);
+  row.addEventListener("dragstart",e=>{
+   draggedSceneId=s.id;row.classList.add("dragging");
+   e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",s.id);
+  });
+  row.addEventListener("dragend",()=>{draggedSceneId=null;row.classList.remove("dragging");document.querySelectorAll(".drop-target").forEach(el=>el.classList.remove("drop-target"));});
+  makeDropTarget(row,folderId,s.id);
+ }
+ function section(id,name,items){
+  let row=document.createElement("div");row.className="folder-row";
+  let toggle=document.createElement("button");toggle.className="folder-toggle";
+  toggle.textContent=(collapsedFolders.has(id)?"▸ ":"▾ ")+name+" ("+items.length+")";
+  toggle.onclick=()=>{collapsedFolders.has(id)?collapsedFolders.delete(id):collapsedFolders.add(id);renderList();};
+  row.appendChild(toggle);
+  makeDropTarget(row,id);
+  if(id!=="__unfiled"){
+   let rename=document.createElement("button");rename.textContent="✎";rename.title="Rename folder";
+   rename.onclick=()=>{let f=project.folders.find(f=>f.id===id),n=prompt("Rename folder:",f.name);if(n&&n.trim()){f.name=n.trim();renderList();renderEditor();}};
+   let del=document.createElement("button");del.textContent="×";del.title="Delete folder (scenes will become unfiled)";
+   del.onclick=()=>{if(!confirm("Delete folder '"+name+"'? Its scenes will be moved to Unfiled."))return;project.folders=project.folders.filter(f=>f.id!==id);project.scenes.forEach(s=>{if(s.folderId===id)s.folderId="";});collapsedFolders.delete(id);renderList();renderEditor();};
+   row.append(rename,del);
+  }
+  root.appendChild(row);
+  if(!collapsedFolders.has(id)){
+   let group=document.createElement("div");group.className="folder-scenes";
+   items.forEach(s=>addSceneRow(s,group,id));
+   // Empty folder body is also a valid drop target.
+   if(!items.length){group.style.minHeight="18px";makeDropTarget(group,id);}
+   root.appendChild(group);
+  }
+ }
+ project.folders.forEach(f=>section(f.id,f.name,project.scenes.filter(s=>s.folderId===f.id)));
+ section("__unfiled","Unfiled",project.scenes.filter(s=>!s.folderId||!project.folders.some(f=>f.id===s.folderId)));
+}
+$("addFolder").onclick=()=>{ensureFolders();let name=prompt("New folder name:");if(!name||!name.trim())return;let id="folder"+Date.now()+"_"+Math.floor(Math.random()*10000);project.folders.push({id,name:name.trim()});renderList();renderEditor();};
+$("expandFolders").onclick=()=>{if(collapsedFolders.size){collapsedFolders.clear();$("expandFolders").textContent="Collapse all";}else{collapsedFolders=new Set(project.folders.map(f=>f.id).concat("__unfiled"));$("expandFolders").textContent="Expand all";}renderList();};
+function renderStartSelect(){
+ let sel=$("startScene");sel.innerHTML="";
+ project.scenes.forEach(s=>{let o=document.createElement("option");o.value=s.id;o.textContent=s.title||"Untitled scene";sel.appendChild(o);});
+ if(!project.scenes.some(s=>s.id===project.start))project.start=project.scenes[0]?.id||"";
+ sel.value=project.start;sel.disabled=!project.scenes.length;
+}
+function renderEditor(){
+ let s=current(),disabled=!s;
+ ["sceneTitle","sceneText","ascii","isEnding","startScene","choiceCount","sceneFolder","moveUp","moveDown","duplicateScene","deleteScene"].forEach(id=>$(id).disabled=disabled);
+ if(!s){$("sceneTitle").value="";$("sceneText").value="";$("ascii").value="";$("choices").innerHTML="";return;}
+ $("sceneTitle").value=s.title;$("sceneText").value=s.text;$("ascii").value=s.ascii;$("isEnding").checked=s.ending;
+ let countSelect=$("choiceCount");countSelect.innerHTML="";for(let n=1;n<=10;n++){let o=document.createElement("option");o.value=n;o.textContent=n;countSelect.appendChild(o);}countSelect.value=Math.max(1,Math.min(10,s.choices.length||1));countSelect.disabled=s.ending;
+ ensureFolders();
+ let folderSel=$("sceneFolder");folderSel.innerHTML='<option value="">Unfiled</option>';
+ project.folders.forEach(f=>{let o=document.createElement("option");o.value=f.id;o.textContent=f.name;folderSel.appendChild(o);});
+ folderSel.value=s.folderId||"";
+ $("choices").innerHTML="";
+ s.choices.forEach((c,i)=>{
+  let wrap=document.createElement("div");wrap.className="choice";
+  let options=project.scenes.map(x=>`<option value="${esc(x.id)}" ${x.id===c.target?"selected":""}>${esc(x.title||"Untitled scene")}</option>`).join("");
+  wrap.innerHTML=`<div class="choice-top"><span>Choice ${i+1}</span><span class="hint">Connect to a scene</span></div><div class="choice-grid"><div><label>Choice text</label><input type="text" data-choice="${i}" data-field="text" value="${esc(c.text)}" placeholder="What the player sees"></div><div><label>Destination</label><select data-choice="${i}" data-field="target"><option value="">-- Select scene --</option>${options}</select></div></div>`;
+  $("choices").appendChild(wrap);
+ });
+ $("choices").querySelectorAll("input,select").forEach(el=>{el.oninput=()=>{let i=+el.dataset.choice,f=el.dataset.field;s.choices[i][f]=el.value;renderPreview();};});
+ $("choices").style.opacity=s.ending?".4":"1";$("choices").style.pointerEvents=s.ending?"none":"auto";
+ $("editorStatus").textContent="";$("editorStatus").className="status";
+}
+function syncField(id,key){let s=current();if(!s)return;s[key]=id==="isEnding"?$(id).checked:$(id).value;if(key==="ending")render();else renderPreview();}
+$("sceneTitle").oninput=()=>{let s=current();if(s){s.title=$("sceneTitle").value;renderList();renderStartSelect();}};
+$("sceneText").oninput=()=>syncField("sceneText","text");
+$("ascii").oninput=()=>syncField("ascii","ascii");
+$("isEnding").onchange=()=>{let s=current();if(s){s.ending=$("isEnding").checked;renderList();renderEditor();renderPreview();}};
+$("startScene").onchange=()=>{project.start=$("startScene").value;};
+$("sceneFolder").onchange=()=>{let s=current();if(s){s.folderId=$("sceneFolder").value;collapsedFolders.delete(s.folderId||"__unfiled");renderList();}};
+function moveScene(id,dir){let i=project.scenes.findIndex(s=>s.id===id),j=i+dir;if(i<0||j<0||j>=project.scenes.length)return;[project.scenes[i],project.scenes[j]]=[project.scenes[j],project.scenes[i]];render();}
+$("moveUp").onclick=()=>moveScene(selectedId,-1);
+$("moveDown").onclick=()=>moveScene(selectedId,1);
+$("choiceCount").onchange=()=>{let s=current();if(!s)return;let n=Number($("choiceCount").value);while(s.choices.length<n)s.choices.push({text:"Choice "+(s.choices.length+1),target:""});s.choices=s.choices.slice(0,n);renderEditor();renderPreview();};
+$("addScene").onclick=()=>{let s=makeScene("Scene "+(project.scenes.length+1));project.scenes.push(s);selectedId=s.id;render();};
+$("deleteScene").onclick=()=>{if(!current())return;if(project.scenes.length===1){alert("A project needs at least one scene.");return;}let id=selectedId;project.scenes=project.scenes.filter(s=>s.id!==id);project.scenes.forEach(s=>s.choices.forEach(c=>{if(c.target===id)c.target="";}));if(project.start===id)project.start=project.scenes[0].id;selectedId=project.scenes[0].id;render();};
+$("duplicateScene").onclick=()=>{let s=current();if(!s)return;let copy=JSON.parse(JSON.stringify(s));copy.id="scene"+(nextId++);copy.title=(s.title||"Scene")+" copy";project.scenes.push(copy);selectedId=copy.id;render();};
+$("newProject").onclick=()=>{if(!confirm("Start a new project? Save your current project first if you need it."))return;project={name:"My Adventure",start:"",scenes:[],folders:[]};collapsedFolders.clear();init();};
+function saveJson(){let blob=new Blob([JSON.stringify(project,null,2)],{type:"application/json"});downloadBlob(blob,"adventure-project.json");}
+function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
+$("saveProject").onclick=saveJson;
+$("loadProject").onclick=()=>$("fileInput").click();
+$("fileInput").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let p=JSON.parse(await f.text());if(!Array.isArray(p.scenes)||!p.scenes.length)throw Error("This file does not contain any scenes.");p.scenes.forEach(s=>{s.choices=Array.isArray(s.choices)?s.choices.slice(0,10):[];if(!s.choices.length&&!s.ending)s.choices=[{text:"Choice 1",target:""}];});project=p;ensureFolders();collapsedFolders.clear();nextId=Math.max(1,...p.scenes.map(s=>Number((s.id||"").replace(/\D/g,""))+1||1));selectedId=project.scenes[0].id;render();$("editorStatus").textContent="Project loaded."; $("editorStatus").className="status ok";}catch(err){alert("Could not load project: "+err.message);}e.target.value="";};
+function renderPreview(){
+ const root=$("preview"),s=current();
+ if(!s){root.textContent="Add a scene to preview your story.";syncLivePreview();return;}
+ const art=s.ascii?s.ascii+"\n\n":"";
+ root.textContent=art+(s.text||"(No scene text yet.)")+(s.ending?"\n\n— THE END —":"");
+ if(!s.ending)s.choices.forEach((c,i)=>{if(c.text.trim()){let b=document.createElement("button");b.innerHTML=`<span class="prompt">${i+1}.</span> ${esc(c.text)}`;b.disabled=true;b.style.opacity=".9";root.appendChild(b);}});
+ $("previewStatus").textContent="Showing: "+(s.title||"Untitled scene")+" (editor only; the game won't display this name).";
+ syncLivePreview();
+}
+function syncLivePreview(){
+ if(!previewWindow||previewWindow.closed)return;
+ const s=current();
+ try{
+  const d=previewWindow.document;
+  const output=d.getElementById('liveContent');
+  if(!output)return;
+  const content=s?((s.ascii?s.ascii+'\n\n':'')+(s.text||'(No scene text yet.)')+(s.ending?'\n\n— THE END —':'')):'No scene selected.';
+  output.textContent='';
+  const artEl=d.createElement('pre');artEl.id='liveArt';artEl.textContent=s?.ascii||'';
+  const textEl=d.createElement('div');textEl.id='liveStory';
+  textEl.textContent=s?(s.text||'(No scene text yet.)')+(s.ending?'\n\n— THE END —':''):'No scene selected.';
+  if(s?.ascii)output.appendChild(artEl);
+  output.appendChild(textEl);
+  if(typeof previewWindow.fitArt==='function')previewWindow.fitArt();
+  const choices=d.getElementById('liveChoices');choices.replaceChildren();
+  if(s&&!s.ending)s.choices.forEach((c,i)=>{if(!c.text.trim())return;const line=d.createElement('div');line.className='option';line.textContent=(i+1)+'. '+c.text;choices.appendChild(line);});
+  d.getElementById('liveTitle').textContent='Live scene preview'+(s?' — '+(s.title||'Untitled'):'');
+ }catch(e){console.warn('Could not update preview window',e);}
+}
+$("openPreview").onclick=()=>{
+ if(previewWindow&&!previewWindow.closed){previewWindow.focus();syncLivePreview();return;}
+ previewWindow=window.open('','AdventureLivePreview','width=1100,height=800,resizable=yes,scrollbars=yes');
+ if(!previewWindow){alert('Allow pop-ups for this file to open the live preview.');return;}
+ const d=previewWindow.document;
+ d.open();d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Live Adventure Preview</title><style>
+ html,body{margin:0;min-height:100%;background:#080b0f;color:#d5d4ce;font:19px/1.55 Consolas,'Courier New',monospace}
+ .top{position:sticky;top:0;background:#131b25;border-bottom:1px solid #394658;padding:12px 22px;display:flex;gap:15px;align-items:center;justify-content:space-between;font:14px Arial,sans-serif}
+ button{background:#285b91;color:white;border:1px solid #548fc8;padding:9px 14px;border-radius:3px;cursor:pointer}
+ main{padding:32px 3vw 70px;margin:auto;max-width:none;min-width:0}#liveContent{min-width:0}
+#liveArt{margin:0 0 22px;white-space:pre;overflow-x:auto;overflow-y:hidden;max-width:100%;tab-size:4;font:14px/1.12 Consolas,'Courier New',monospace;letter-spacing:0;font-variant-ligatures:none;overflow-wrap:normal;word-break:normal}
+#liveStory{white-space:pre-wrap;overflow-wrap:break-word;font:19px/1.55 Consolas,'Courier New',monospace;max-width:110ch}
+.option{padding:9px 0;color:#9dcbff}
+ :fullscreen{background:#080b0f;overflow:auto} @media(max-width:700px){main{padding:18px;font-size:15px}}
+ </style></head><body><div class="top"><span id="liveTitle">Live scene preview</span><label style="margin-left:auto;white-space:nowrap"><input type="checkbox" id="fitWidth" checked> Fit art to width</label><button id="fullscreenButton">Enter fullscreen</button></div><main><div id="liveContent"></div><div id="liveChoices"></div></main>
+ <script>
+window.fitArt=function(){
+ const art=document.getElementById('liveArt');if(!art)return;
+ const fit=document.getElementById('fitWidth').checked;
+ art.style.fontSize='14px';
+ if(!fit)return;
+ const available=art.clientWidth;
+ const longest=art.textContent.split(/\\r?\\n/).reduce((a,b)=>Math.max(a,b.length),0);
+ if(!longest||!available)return;
+ const measure=document.createElement('span');
+ measure.style.cssText='position:absolute;visibility:hidden;white-space:pre;font:14px Consolas,monospace';
+ measure.textContent='M'.repeat(longest);
+ document.body.appendChild(measure);
+ const natural=measure.getBoundingClientRect().width;measure.remove();
+ if(natural>available)art.style.fontSize=Math.max(7,14*available/natural).toFixed(2)+'px';
+};
+document.getElementById('fitWidth').onchange=window.fitArt;
+window.addEventListener('resize',window.fitArt);
+document.getElementById('fullscreenButton').onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch(e){alert('Fullscreen was blocked by the browser.');}};document.addEventListener('fullscreenchange',()=>{document.getElementById('fullscreenButton').textContent=document.fullscreenElement?'Exit fullscreen':'Enter fullscreen';});<\/script></body></html>`);
+ d.close();syncLivePreview();
+};
+$("restartPreview").onclick=renderPreview;
+$("checkProject").onclick=()=>{
+ let errors=[],warnings=[],ids=new Set(project.scenes.map(s=>s.id));
+ project.scenes.forEach(s=>{if(!s.ending)s.choices.forEach((c,i)=>{if(c.text.trim()&&!c.target)errors.push(`${s.title}: Choice ${i+1} has no destination.`);else if(c.target&&!ids.has(c.target))errors.push(`${s.title}: Choice ${i+1} points to a missing scene.`);});});
+ if(!ids.has(project.start))errors.push("The starting scene is missing.");
+ let reached=new Set(),stack=[project.start];while(stack.length){let id=stack.pop();if(reached.has(id))continue;reached.add(id);let s=project.scenes.find(x=>x.id===id);if(s&&!s.ending)s.choices.forEach(c=>{if(ids.has(c.target))stack.push(c.target);});}
+ project.scenes.forEach(s=>{if(!reached.has(s.id))warnings.push(`${s.title||s.id} cannot be reached from the starting scene.`);});
+ $("checks").innerHTML=(errors.length?`<b style="color:var(--red)">Errors</b><br>${errors.map(esc).join("<br>")}`:'<b style="color:var(--green)">No broken choice links found.</b>')+(warnings.length?`<br><br><b style="color:#e7c27b">Warnings</b><br>${warnings.map(esc).join("<br>")}`:"");
+};
+function cppString(str){return '"'+String(str??"").replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/\t/g,"\\t")+'"';}
+function generateCpp(){
+ let ids=new Map(project.scenes.map((s,i)=>[s.id,i]));
+ let out=`#include <iostream>\n#include <string>\n#include <vector>\n#include <limits>\nusing namespace std;\n\nstruct Choice { string text; int destination; };\nstruct Scene { string title; string art; string text; bool ending; vector<Choice> choices; };\n\nint main() {\n    vector<Scene> scenes = {\n`;
+ project.scenes.forEach((s,i)=>{
+  out+="        { "+cppString(s.title)+", "+cppString(s.ascii)+", "+cppString(s.text)+", "+(s.ending?"true":"false")+", {";
+  let choices=s.ending?[]:s.choices.filter(c=>c.text.trim()).map(c=>({text:c.text,dest:ids.has(c.target)?ids.get(c.target):-1}));
+  out+=choices.map(c=>"{ "+cppString(c.text)+", "+c.dest+" }").join(", ");
+  out+="} }"+(i===project.scenes.length-1?"":",")+"\n";
+ });
+ let start=ids.has(project.start)?ids.get(project.start):0;
+ out+=`    };\n\n    int currentScene = ${start};\n    while (currentScene >= 0 && currentScene < static_cast<int>(scenes.size())) {\n        const Scene& scene = scenes[currentScene];\n        cout << \"\\n========================================\\n\";\n        if (!scene.art.empty()) cout << scene.art << \"\\n\";\n        cout << scene.text << \"\\n\\n\";\n        if (scene.ending || scene.choices.empty()) {\n            cout << \"The End.\\n\";\n            break;\n        }\n        for (size_t i = 0; i < scene.choices.size(); ++i)\n            cout << (i + 1) << \". \" << scene.choices[i].text << \"\\n\";\n        cout << \"\\nChoose an option: \";\n        int choice;\n        if (!(cin >> choice)) {\n            cin.clear();\n            cin.ignore(numeric_limits<streamsize>::max(), '\\n');\n            cout << \"Please enter a number.\\n\";\n            continue;\n        }\n        if (choice < 1 || choice > static_cast<int>(scene.choices.size())) {\n            cout << \"Invalid choice. Try again.\\n\";\n            continue;\n        }\n        int destination = scene.choices[choice - 1].destination;\n        if (destination < 0 || destination >= static_cast<int>(scenes.size())) {\n            cout << \"That path has not been connected yet.\\n\";\n            break;\n        }\n        currentScene = destination;\n        cout << \"\\n\";\n    }\n    cout << \"\\nThanks for playing!\\n\";\n    return 0;\n}\n`;
+ return out;
+}
+$("exportCpp").onclick=()=>{let errs=[];project.scenes.forEach(s=>{if(!s.ending)s.choices.forEach((c,i)=>{if(c.text.trim()&&(!c.target||!project.scenes.some(x=>x.id===c.target)))errs.push(`${s.title}: Choice ${i+1} needs a valid destination.`);});});if(errs.length&&!confirm("Some choices are not connected. Export anyway?\\n\\n"+errs.join("\\n")))return;$("cppOutput").value=generateCpp();$("exportModal").style.display="flex";};
+$("closeModal").onclick=()=>$("exportModal").style.display="none";
+$("copyCpp").onclick=async()=>{try{await navigator.clipboard.writeText($("cppOutput").value);$("exportStatus").textContent="Copied to clipboard."; }catch(e){$("cppOutput").select();document.execCommand("copy");$("exportStatus").textContent="Copied."; }};
+$("downloadCpp").onclick=()=>downloadBlob(new Blob([$("cppOutput").value],{type:"text/plain"}),"Adventure.cpp");
+init();
+</script>
+</body>
+</html>
